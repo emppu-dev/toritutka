@@ -18,6 +18,8 @@ type Config struct {
 	Webhook  string `json:"webhook"`
 }
 
+var foundTotal int
+
 func main() {
 	content, _ := ioutil.ReadFile("config.json")
 	var config Config
@@ -46,7 +48,7 @@ func main() {
 		})
 		if !slices.Contains(seen, found) {
 			if !firstRun {
-				fmt.Println(found)
+				foundTotal++
 				sendWebhook(webhook, `{"content": null,"embeds": [{"title": "Uusi tuote löydetty 🔍","url": "`+found+`","description":"Hakusana: `+hakusana+`","color": 2895667,"image": {"url": "`+imgUrl+`"}}],"attachments": []}`)
 			}
 			seen = append(seen, found)
@@ -58,7 +60,11 @@ func main() {
 	})
 
 	for {
+		foundTotal = 0
 		c.Visit("https://www.tori.fi/koko_suomi?q=" + hakusana + "&cg=0&w=3&st=s&ca=18&l=0&md=th")
+		if foundTotal > 0 {
+			fmt.Println("Uusia ilmoituksia löydetty: ", foundTotal)
+		}
 		time.Sleep(10 * time.Second)
 		firstRun = false
 	}
