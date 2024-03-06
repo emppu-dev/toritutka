@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"slices"
 	"strings"
@@ -11,9 +13,17 @@ import (
 	"github.com/gocolly/colly"
 )
 
+type Config struct {
+	Hakusana string `json:"hakusana"`
+	Webhook  string `json:"webhook"`
+}
+
 func main() {
-	hakusana := "" // HAKUSANA TÄHÄN
-	webhook := ""  // WEBHOOK TÄHÄN
+	content, _ := ioutil.ReadFile("config.json")
+	var config Config
+	_ = json.Unmarshal(content, &config)
+	hakusana := config.Hakusana
+	webhook := config.Webhook
 
 	seen := []string{}
 	firstRun := true
