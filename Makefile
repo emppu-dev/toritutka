@@ -1,5 +1,5 @@
 build:
-	@go build -o bin/golang-api main.go
+	@go build -o bin/toritutka main.go
 
 run: build
-	@./bin/golang-api
+	@./bin/toritutka
