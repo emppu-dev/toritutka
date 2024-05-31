@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"slices"
 	"time"
 
-	"github.com/gocolly/colly"
+	"github.com/valyala/fasthttp"
 )
 
 type Config struct {
@@ -46,20 +44,30 @@ func main() {
 	seen := []string{}
 	firstRun := true
 
-	c := colly.NewCollector(colly.AllowURLRevisit())
+	client := &fasthttp.Client{}
 
-	c.OnRequest(func(r *colly.Request) {
-		r.Headers.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
-		r.Headers.Set("Accept", "application/json")
-	})
+	for {
+		foundTotal = 0
+		req := fasthttp.AcquireRequest()
+		req.SetRequestURI("https://beta.tori.fi/recommerce-search-page/api/search/SEARCH_ID_BAP_COMMON?q=" + hakusana + "&sort=PUBLISHED_DESC")
+		req.Header.SetMethod("GET")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
+		req.Header.Set("Accept", "application/json")
 
-	c.OnResponse(func(r *colly.Response) {
-		var response Response
-		//fmt.Println("Status code:", r.StatusCode)
-		if err := json.Unmarshal(r.Body, &response); err != nil {
-			fmt.Println("Error unmarshalling JSON:", err)
-			return
+		resp := fasthttp.AcquireResponse()
+		err := client.Do(req, resp)
+		if err != nil {
+			fmt.Printf("Error: %s\n", err)
+			continue
 		}
+
+		var response Response
+		body := resp.Body()
+		if err := json.Unmarshal(body, &response); err != nil {
+			fmt.Println("Error unmarshalling JSON:", err)
+			continue
+		}
+
 		for i, product := range response.Docs {
 			if i >= 25 {
 				break
@@ -82,12 +90,10 @@ func main() {
 				seen = append(seen, product.CanonicalURL)
 			}
 		}
-	})
-	fmt.Println("Hakusana:", hakusana)
-	for {
-		foundTotal = 0
-		c.Visit("https://beta.tori.fi/recommerce-search-page/api/search/SEARCH_ID_BAP_COMMON?q=" + hakusana + "&sort=PUBLISHED_DESC")
-		c.Visit("https://beta.tori.fi/recommerce-search-page/api/search/SEARCH_ID_BAP_COMMON?q=" + hakusana + "&sort=PUBLISHED_DESC") // Ei toimi jos requestin lähettää vain kerran??!?!! 😭
+
+		fasthttp.ReleaseRequest(req)
+		fasthttp.ReleaseResponse(resp)
+
 		if foundTotal > 0 {
 			fmt.Println("Uusia ilmoituksia löydetty: ", foundTotal)
 		}
@@ -98,8 +104,19 @@ func main() {
 }
 
 func sendWebhook(webhook, payload string) {
-	req, _ := http.NewRequest("POST", webhook, bytes.NewBuffer([]byte(payload)))
+	req := fasthttp.AcquireRequest()
+	req.SetRequestURI(webhook)
+	req.Header.SetMethod("POST")
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	client.Do(req)
+	req.SetBody([]byte(payload))
+
+	resp := fasthttp.AcquireResponse()
+	client := &fasthttp.Client{}
+	err := client.Do(req, resp)
+	if err != nil {
+		fmt.Printf("Error: %s\n", err)
+	}
+
+	fasthttp.ReleaseRequest(req)
+	fasthttp.ReleaseResponse(resp)
 }
