@@ -76,9 +76,9 @@ func main() {
 			}
 			if !slices.Contains(seen, product.CanonicalURL) {
 				if !firstRun {
+					foundTotal++
 					fmt.Println(product.Heading + "\n" + strconv.Itoa(product.Price.Amount) + product.Price.PriceUnit + "\n" + product.Location + "\n" + product.CanonicalURL + "\n" + "-----")
 					if webhook != "" {
-						foundTotal++
 						embeds := "\"embeds\": ["
 						for i := 0; i < len(product.ImageURLs) && i < 3; i++ {
 							embeds += fmt.Sprintf(`{
@@ -115,11 +115,9 @@ func main() {
 		fasthttp.ReleaseRequest(req)
 		fasthttp.ReleaseResponse(resp)
 
-		/*
-			if foundTotal > 0 {
-				fmt.Println("Uusia ilmoituksia löydetty: ", foundTotal)
-			}
-		*/
+		if foundTotal > 0 {
+			fmt.Println("Uusia ilmoituksia löydetty: ", strconv.Itoa(foundTotal)+"\n-----")
+		}
 
 		firstRun = false
 		time.Sleep(10 * time.Second)
