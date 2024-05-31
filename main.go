@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -37,8 +38,11 @@ func main() {
 	}
 	hakusana := os.Getenv("HAKUSANA")
 	webhook := os.Getenv("WEBHOOK")
-	fmt.Println("Hakusana: ", hakusana)
-
+	if hakusana != "" {
+		fmt.Println("Haku aloitettu sanalla `" + hakusana + "`...")
+	} else {
+		fmt.Println("Haku aloitettu...")
+	}
 	seen := []string{}
 	firstRun := true
 
@@ -72,18 +76,37 @@ func main() {
 			}
 			if !slices.Contains(seen, product.CanonicalURL) {
 				if !firstRun {
-					foundTotal++
-					embeds := "\"embeds\": ["
-					for i := 0; i < len(product.ImageURLs) && i < 3; i++ {
-						embeds += fmt.Sprintf(`{"title": "%s","url": "%s","description":"Hinta: %d %s","color": 2895667,"image": {"url": "%s"}}`,
-							product.Heading, product.CanonicalURL, product.Price.Amount, product.Price.PriceUnit, product.ImageURLs[i])
-						if i < len(product.ImageURLs)-1 && i < 2 {
-							embeds += ","
+					fmt.Println(product.Heading + "\n" + strconv.Itoa(product.Price.Amount) + product.Price.PriceUnit + "\n" + product.Location + "\n" + product.CanonicalURL + "\n" + "-----")
+					if webhook != "" {
+						foundTotal++
+						embeds := "\"embeds\": ["
+						for i := 0; i < len(product.ImageURLs) && i < 3; i++ {
+							embeds += fmt.Sprintf(`{
+								"title": "%s",
+								"url": "%s",
+								"color": 2895667,
+								"image": {"url": "%s"},
+								"fields": [
+									{
+										"name": "Hinta",
+										"value": "%d %s",
+										"inline": true
+									},
+									{
+										"name": "Paikka",
+										"value": "%s",
+										"inline": true
+									}
+								]
+							}`, product.Heading, product.CanonicalURL, product.ImageURLs[i], product.Price.Amount, product.Price.PriceUnit, product.Location)
+							if i < len(product.ImageURLs)-1 && i < 2 {
+								embeds += ","
+							}
 						}
+						embeds += "]"
+						payload := fmt.Sprintf(`{"content": null,%s,"attachments": []}`, embeds)
+						sendWebhook(webhook, payload)
 					}
-					embeds += "]"
-					payload := fmt.Sprintf(`{"content": null,%s,"attachments": []}`, embeds)
-					sendWebhook(webhook, payload)
 				}
 				seen = append(seen, product.CanonicalURL)
 			}
@@ -92,9 +115,11 @@ func main() {
 		fasthttp.ReleaseRequest(req)
 		fasthttp.ReleaseResponse(resp)
 
-		if foundTotal > 0 {
-			fmt.Println("Uusia ilmoituksia löydetty: ", foundTotal)
-		}
+		/*
+			if foundTotal > 0 {
+				fmt.Println("Uusia ilmoituksia löydetty: ", foundTotal)
+			}
+		*/
 
 		firstRun = false
 		time.Sleep(10 * time.Second)
