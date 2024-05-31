@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"slices"
 	"strconv"
@@ -34,7 +35,7 @@ var foundTotal int
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		fmt.Println("Error loading .env file")
+		log.Fatalf("Error loading .env file")
 	}
 	hakusana := os.Getenv("HAKUSANA")
 	webhook := os.Getenv("WEBHOOK")
@@ -59,14 +60,14 @@ func main() {
 		resp := fasthttp.AcquireResponse()
 		err := client.Do(req, resp)
 		if err != nil {
-			fmt.Printf("Error: %s\n", err)
+			log.Fatalf("Error: %s\n", err)
 			continue
 		}
 
 		var response Response
 		body := resp.Body()
 		if err := json.Unmarshal(body, &response); err != nil {
-			fmt.Println("Error unmarshalling JSON:", err)
+			log.Fatalf("Error unmarshalling JSON: %v", err)
 			continue
 		}
 
@@ -135,7 +136,7 @@ func sendWebhook(webhook, payload string) {
 	client := &fasthttp.Client{}
 	err := client.Do(req, resp)
 	if err != nil {
-		fmt.Printf("Error: %s\n", err)
+		log.Fatalf("Error: %s\n", err)
 	}
 
 	fasthttp.ReleaseRequest(req)
