@@ -29,6 +29,8 @@ type Response struct {
 	Docs []Product `json:"docs"`
 }
 
+var foundTotal int
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
