@@ -3,17 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"slices"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/valyala/fasthttp"
 )
-
-type Config struct {
-	Hakusana string `json:"hakusana"`
-	Webhook  string `json:"webhook"`
-}
 
 type Product struct {
 	Heading      string   `json:"heading"`
@@ -35,11 +31,13 @@ type Response struct {
 var foundTotal int
 
 func main() {
-	content, _ := ioutil.ReadFile("config.json")
-	var config Config
-	_ = json.Unmarshal(content, &config)
-	hakusana := config.Hakusana
-	webhook := config.Webhook
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Println("Error loading .env file")
+	}
+	hakusana := os.Getenv("HAKUSANA")
+	webhook := os.Getenv("WEBHOOK")
+	fmt.Println("Hakusana: ", hakusana)
 
 	seen := []string{}
 	firstRun := true
