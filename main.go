@@ -52,7 +52,7 @@ func main() {
 	for {
 		foundTotal = 0
 		req := fasthttp.AcquireRequest()
-		req.SetRequestURI("https://beta.tori.fi/recommerce-search-page/api/search/SEARCH_ID_BAP_COMMON?q=" + hakusana + "&sort=PUBLISHED_DESC")
+		req.SetRequestURI("https://beta.tori.fi/recommerce-search-page/api/search/SEARCH_ID_BAP_COMMON?q=" + hakusana + "&sort=PUBLISHED_DESC&trade_type=2&trade_type=1")
 		req.Header.SetMethod("GET")
 		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
 		req.Header.Set("Accept", "application/json")
