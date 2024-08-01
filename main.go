@@ -37,13 +37,23 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
+
 	hakusana := os.Getenv("HAKUSANA")
-	webhook := os.Getenv("WEBHOOK")
+	discordWebhook := os.Getenv("DISCORD_WEBHOOK")
+	telegramBotToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	telegramChatID := os.Getenv("TELEGRAM_CHAT_ID")
+
+	if discordWebhook == "" && (telegramBotToken == "" || telegramChatID == "") {
+		fmt.Println("Ilmoitus tapaa ei ole määritelty. Määritä joko Discord Webhook tai Telegram Bot Token ja Chat ID tai molemmat.")
+		return
+	}
+
 	if hakusana != "" {
 		fmt.Println("Haku aloitettu sanalla `" + hakusana + "`...")
 	} else {
 		fmt.Println("Haku aloitettu...")
 	}
+
 	seen := []string{}
 	firstRun := true
 
@@ -79,34 +89,13 @@ func main() {
 				if !firstRun {
 					foundTotal++
 					fmt.Println(product.Heading + "\n" + strconv.Itoa(product.Price.Amount) + product.Price.PriceUnit + "\n" + product.Location + "\n" + product.CanonicalURL + "\n" + "-----")
-					if webhook != "" {
-						embeds := "\"embeds\": ["
-						for i := 0; i < len(product.ImageURLs) && i < 3; i++ {
-							embeds += fmt.Sprintf(`{
-								"title": "%s",
-								"url": "%s",
-								"color": 2895667,
-								"image": {"url": "%s"},
-								"fields": [
-									{
-										"name": "Hinta",
-										"value": "%d %s",
-										"inline": true
-									},
-									{
-										"name": "Paikka",
-										"value": "%s",
-										"inline": true
-									}
-								]
-							}`, product.Heading, product.CanonicalURL, product.ImageURLs[i], product.Price.Amount, product.Price.PriceUnit, product.Location)
-							if i < len(product.ImageURLs)-1 && i < 2 {
-								embeds += ","
-							}
-						}
-						embeds += "]"
-						payload := fmt.Sprintf(`{"content": null,%s,"attachments": []}`, embeds)
-						sendWebhook(webhook, payload)
+
+					if discordWebhook != "" {
+						sendDiscordNotification(discordWebhook, product)
+					}
+
+					if telegramBotToken != "" && telegramChatID != "" {
+						sendTelegramNotification(telegramBotToken, telegramChatID, product)
 					}
 				}
 				seen = append(seen, product.CanonicalURL)
@@ -125,9 +114,53 @@ func main() {
 	}
 }
 
-func sendWebhook(webhook, payload string) {
+func sendDiscordNotification(webhook string, product Product) {
+	embeds := "\"embeds\": ["
+	for i := 0; i < len(product.ImageURLs) && i < 3; i++ {
+		embeds += fmt.Sprintf(`{
+			"title": "%s",
+			"url": "%s",
+			"color": 2895667,
+			"image": {"url": "%s"},
+			"fields": [
+				{
+					"name": "Hinta",
+					"value": "%d%s",
+					"inline": true
+				},
+				{
+					"name": "Paikka",
+					"value": "%s",
+					"inline": true
+				}
+			]
+		}`, product.Heading, product.CanonicalURL, product.ImageURLs[i], product.Price.Amount, product.Price.PriceUnit, product.Location)
+		if i < len(product.ImageURLs)-1 && i < 2 {
+			embeds += ","
+		}
+	}
+	embeds += "]"
+	payload := fmt.Sprintf(`{"content": null,%s,"attachments": []}`, embeds)
+	sendWebhook(webhook, payload)
+}
+
+func sendTelegramNotification(botToken, chatID string, product Product) {
+	message := fmt.Sprintf("%s\nHinta: %d%s\nPaikka: %s\n%s",
+		product.Heading,
+		product.Price.Amount,
+		product.Price.PriceUnit,
+		product.Location,
+		product.CanonicalURL)
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken)
+	payload := fmt.Sprintf(`{"chat_id": "%s", "text": "%s"}`, chatID, message)
+
+	sendWebhook(url, payload)
+}
+
+func sendWebhook(url, payload string) {
 	req := fasthttp.AcquireRequest()
-	req.SetRequestURI(webhook)
+	req.SetRequestURI(url)
 	req.Header.SetMethod("POST")
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBody([]byte(payload))
@@ -136,7 +169,7 @@ func sendWebhook(webhook, payload string) {
 	client := &fasthttp.Client{}
 	err := client.Do(req, resp)
 	if err != nil {
-		log.Fatalf("Error: %s\n", err)
+		log.Printf("Error: %s\n", err)
 	}
 
 	fasthttp.ReleaseRequest(req)
